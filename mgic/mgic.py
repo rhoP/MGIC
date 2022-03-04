@@ -48,6 +48,7 @@ class BasicBlock(nn.Module):
         self.sc = seq[-1]
         self.kernel = kernel
         self.n_levels = len(seq)
+        self.padding = 1
 
         self.res_seq = []
         self.conv_seq = []
@@ -55,11 +56,6 @@ class BasicBlock(nn.Module):
         self.bn_seq = []
         level_channels = [int(self.cin // math.prod(seq[:level]))
                           for level in range(self.n_levels + 1)]
-
-        if stride == 1:
-            self.padding = 1
-        else:
-            self.padding = ((stride - 1) * self.cin + self.kernel[0] - stride) // 2
 
         for level in range(self.n_levels):
             self.res_seq.append(Restr2d(level_channels[level], seq[level]))
@@ -108,9 +104,9 @@ class Net(nn.Module):
         self.max_pool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
         self.layer1 = self._make_layer(Block, layer_list[0], in_planes=64, out_planes=64)
-        self.layer2 = self._make_layer(Block, layer_list[1], in_planes=128, out_planes=128, stride=1)
-        self.layer3 = self._make_layer(Block, layer_list[2], in_planes=256, out_planes=256, stride=1)
-        self.layer4 = self._make_layer(Block, layer_list[3], in_planes=512, out_planes=512, stride=1)
+        self.layer2 = self._make_layer(Block, layer_list[1], in_planes=128, out_planes=128)
+        self.layer3 = self._make_layer(Block, layer_list[2], in_planes=256, out_planes=256)
+        self.layer4 = self._make_layer(Block, layer_list[3], in_planes=512, out_planes=512)
 
         self.avgpool = nn.AdaptiveAvgPool2d((1, 1))
         self.fc = nn.Linear(512 * Block.expansion, num_classes)
