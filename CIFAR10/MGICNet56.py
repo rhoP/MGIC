@@ -50,18 +50,15 @@ def train(epochs, train_loader, test_loader):
         total_train_loss = 0.
 
         for batch_idx, (data, target) in enumerate(train_loader):
-            data, target = data.float(), target.to(dtype=torch.long)
             data, target = data.to(device), target.to(device)
             opt.zero_grad()
             output = model(data)
-            loss = loss_fun(data, target)
+            loss = loss_fun(output, target)
             total_train_loss += loss * len(data)
             loss_train.append(loss)
             pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
             correct = pred.eq(target.view_as(pred)).sum().item()
             accur_train.append(correct / len(data))
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(data), len(train_loader.dataset), 100. * batch_idx / len(train_loader), loss))
 
         model.eval()
         test_loss = 0.
