@@ -20,9 +20,9 @@ def get_data(batch_size):
                              std=[0.24703224, 0.24348514, 0.26158786]),
     ])
 
-    trainset = datasets.CIFAR10(root='../../data', train=True,
+    trainset = datasets.CIFAR10(root='../data', train=True,
                                 download=True, transform=transform)
-    testset = datasets.CIFAR10(root='../../data', train=False,
+    testset = datasets.CIFAR10(root='../data', train=False,
                                download=True, transform=transform)
     train_loader = DataLoader(trainset, batch_size=batch_size, shuffle=True, num_workers=8, pin_memory=True)
     test_loader = DataLoader(testset, batch_size=batch_size, num_workers=8, pin_memory=True)
@@ -36,9 +36,7 @@ def train(epochs, train_loader, test_loader):
     accur = []
     accur_train = []
     model = Net56(10, 3)
-    # model = ResNet18()
-    # model = models.vgg16()
-    opt = optim.Adam(model.parameters(), lr=0.001,
+    opt = optim.Adam(model.parameters(), lr=0.01,
                      betas=(0.9, 0.999), eps=1e-08,
                      weight_decay=0, amsgrad=True
                      )
@@ -50,14 +48,19 @@ def train(epochs, train_loader, test_loader):
         total_train_loss = 0.
 
         for batch_idx, (data, target) in enumerate(train_loader):
-            data, target = data.to(device), target.to(device)
+            data, target = data.float(), target.to(dtype=torch.long)
+            if torch.cuda.is_available():
+                data, target = data.to(device), target.to(device)
             opt.zero_grad()
             output = model(data)
             loss = loss_fun(output, target)
-            total_train_loss += loss * len(data)
-            loss_train.append(loss)
-            pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+            loss.backward()
+            opt.step()
+            total_train_loss += float(loss) * len(data)
+            loss_train.append(loss.item())
+            pred = output.argmax(dim=1, keepdim=True)
             correct = pred.eq(target.view_as(pred)).sum().item()
+            del pred
             accur_train.append(correct / len(data))
 
         model.eval()
@@ -66,10 +69,11 @@ def train(epochs, train_loader, test_loader):
         with torch.no_grad():
             for data, target in test_loader:
                 data, target = data.float(), target.to(dtype=torch.long)
-                data, target = data.to(device), target.to(device)
+                if torch.cuda.is_available():
+                    data, target = data.to(device), target.to(device)
                 output = model(data)
-                test_loss += loss_fun(output, target).item() * len(data)  # sum up batch loss
-                pred = output.argmax(dim=1, keepdim=True)  # get the index of the max log-probability
+                test_loss += loss_fun(output, target).item() * len(data)
+                pred = output.argmax(dim=1, keepdim=True)
                 correct += pred.eq(target.view_as(pred)).sum().item()
 
         test_loss /= len(test_loader.dataset)
@@ -77,7 +81,7 @@ def train(epochs, train_loader, test_loader):
         avg_loss_train.append(total_train_loss / len(train_loader.dataset))
         test_acc = correct / len(test_loader.dataset)
         accur.append(test_acc)
-        sch.step(test_loss)
+        sch.step()
         print('\nTrain set: Average loss: {:.8f}\n'.format(total_train_loss / len(train_loader.dataset)))
 
         print('\nTest set: Average loss: {:.8f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
@@ -90,7 +94,7 @@ def train(epochs, train_loader, test_loader):
 def main():
     bs = 64
     t_l, tst_l = get_data(bs)
-    eps = 100
+    eps = 20
 
     l_v, l_t, al_t, acc, acct = train(eps, t_l, tst_l)
 

@@ -84,7 +84,7 @@ class BasicBlock(nn.Module):
         for level in range(self.n_levels):
             out = x_seq[::-1][level + 1] + self.bn_seq[level](self.prol_seq[::-1][level](out - x_seq[::-1][level]))
             out = self.conv_seq[level](out)
-
+        del x_seq
         return out
 
 
